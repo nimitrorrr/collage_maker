@@ -1,0 +1,127 @@
+name: Build Collage App
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [ created ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '5.15.2'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_mingw81'
+        modules: 'qtimageformats'
+        cache: true
+    
+    - name: Setup MinGW
+      uses: egor-tensin/setup-mingw@v2
+      with:
+        platform: x64
+    
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release ..
+    
+    - name: Build
+      run: |
+        cd build
+        mingw32-make -j4
+    
+    - name: Deploy Qt dependencies
+      run: |
+        cd build
+        windeployqt.exe --release --no-translations CollageApp.exe
+    
+    - name: Package application
+      run: |
+        mkdir CollageApp-Windows
+        cp build/CollageApp.exe CollageApp-Windows/
+        cp -r build/platforms CollageApp-Windows/ 2>$null || true
+        cp -r build/imageformats CollageApp-Windows/ 2>$null || true
+        cp -r build/styles CollageApp-Windows/ 2>$null || true
+        Get-ChildItem build/*.dll | Copy-Item -Destination CollageApp-Windows/
+    
+    - name: Create archive
+      run: |
+        Compress-Archive -Path CollageApp-Windows/* -DestinationPath CollageApp-Windows-x64.zip
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: CollageApp-Windows-x64
+        path: CollageApp-Windows-x64.zip
+        retention-days: 30
+    
+    - name: Upload release asset
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./CollageApp-Windows-x64.zip
+        asset_name: CollageApp-Windows-x64.zip
+        asset_content_type: application/zip
+
+  build-linux:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake qt5-default qtbase5-dev
+    
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+    
+    - name: Build
+      run: |
+        cd build
+        make -j4
+    
+    - name: Package application
+      run: |
+        mkdir CollageApp-Linux
+        cp build/CollageApp CollageApp-Linux/
+        chmod +x CollageApp-Linux/CollageApp
+        tar -czf CollageApp-Linux-x64.tar.gz CollageApp-Linux
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: CollageApp-Linux-x64
+        path: CollageApp-Linux-x64.tar.gz
+        retention-days: 30
+    
+    - name: Upload release asset
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./CollageApp-Linux-x64.tar.gz
+        asset_name: CollageApp-Linux-x64.tar.gz
+        asset_content_type: application/gzip
