@@ -61,7 +61,7 @@ jobs:
         Compress-Archive -Path CollageApp-Windows/* -DestinationPath CollageApp-Windows-x64.zip
     
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: CollageApp-Windows-x64
         path: CollageApp-Windows-x64.zip
@@ -109,7 +109,7 @@ jobs:
         tar -czf CollageApp-Linux-x64.tar.gz CollageApp-Linux
     
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: CollageApp-Linux-x64
         path: CollageApp-Linux-x64.tar.gz
