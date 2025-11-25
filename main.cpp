@@ -247,6 +247,7 @@ private:
     QTimer* resizeTimer;
     int lastWidth = -1;
     int lastHeight = -1;
+    bool isUpdatingLayout = false;
 
     void setupUI() {
         setWindowTitle("Продвинутый Коллаж - C++ Qt5");
@@ -318,6 +319,11 @@ private:
     void resizeEvent(QResizeEvent* event) override {
         QMainWindow::resizeEvent(event);
         
+        // Игнорируем события во время обновления layout
+        if (isUpdatingLayout) {
+            return;
+        }
+        
         int currentWidth = width();
         int currentHeight = height();
         
@@ -329,8 +335,10 @@ private:
     }
 
     void handleResize() {
+        isUpdatingLayout = true;
         updateLayout();
         recreateGrid();
+        isUpdatingLayout = false;
     }
 
     void updateLayout() {
@@ -364,6 +372,9 @@ private:
     }
 
     void recreateGrid() {
+        // Блокируем обработку событий во время пересоздания
+        dropContainer->setUpdatesEnabled(false);
+        
         // Clear existing grid
         while (gridLayout->count() > 0) {
             QLayoutItem* item = gridLayout->takeAt(0);
@@ -411,6 +422,9 @@ private:
         // Restore images
         updateAllThumbnails(cellSize);
         updateInfoLabel();
+        
+        // Разблокируем обработку событий
+        dropContainer->setUpdatesEnabled(true);
     }
 
     void onImageDropped(int row, int col, QString filePath) {
