@@ -22,24 +22,22 @@ jobs:
         version: '5.15.2'
         host: 'windows'
         target: 'desktop'
-        arch: 'win64_mingw81'
+        arch: 'win64_msvc2019_64'
         cache: true
-        tools: 'tools_mingw,qt.tools.win64_mingw810'
     
-    - name: Add Qt MinGW to PATH
-      run: |
-        echo "${{ runner.temp }}/Qt/Tools/mingw810_64/bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
     
     - name: Configure CMake
       run: |
         mkdir build
         cd build
-        cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -S .. -B .
+        cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release ..
     
     - name: Build
       run: |
         cd build
-        mingw32-make -j4
+        nmake
     
     - name: Deploy Qt dependencies
       run: |
@@ -49,10 +47,10 @@ jobs:
     - name: Package application
       run: |
         mkdir CollageApp-Windows
-        cp build/CollageApp.exe CollageApp-Windows/
-        cp -r build/platforms CollageApp-Windows/ 2>$null || true
-        cp -r build/imageformats CollageApp-Windows/ 2>$null || true
-        cp -r build/styles CollageApp-Windows/ 2>$null || true
+        Copy-Item build/CollageApp.exe CollageApp-Windows/
+        if (Test-Path build/platforms) { Copy-Item -Recurse build/platforms CollageApp-Windows/ }
+        if (Test-Path build/imageformats) { Copy-Item -Recurse build/imageformats CollageApp-Windows/ }
+        if (Test-Path build/styles) { Copy-Item -Recurse build/styles CollageApp-Windows/ }
         Get-ChildItem build/*.dll | Copy-Item -Destination CollageApp-Windows/
     
     - name: Create archive
