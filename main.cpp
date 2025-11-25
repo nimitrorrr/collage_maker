@@ -224,6 +224,12 @@ class CollageApp : public QMainWindow {
 public:
     CollageApp(QWidget* parent = nullptr) : QMainWindow(parent), gridSize(3), maxCollageSize(4000) {
         setupUI();
+        
+        // Таймер для проверки размера окна
+        checkSizeTimer = new QTimer(this);
+        connect(checkSizeTimer, &QTimer::timeout, this, &CollageApp::checkWindowSize);
+        checkSizeTimer->start(500); // Проверяем каждые 500ms
+        
         QTimer::singleShot(100, this, &CollageApp::initializeGrid);
     }
 
@@ -244,10 +250,9 @@ private:
     
     std::vector<std::vector<ImageCell*>> cells;
     
-    QTimer* resizeTimer;
+    QTimer* checkSizeTimer;
     int lastWidth = -1;
     int lastHeight = -1;
-    bool isUpdatingLayout = false;
 
     void setupUI() {
         setWindowTitle("Продвинутый Коллаж - C++ Qt5");
@@ -308,11 +313,6 @@ private:
         gridLayout->setSpacing(2);
         gridLayout->setContentsMargins(10, 10, 10, 10);
 
-        // Resize timer for debouncing
-        resizeTimer = new QTimer(this);
-        resizeTimer->setSingleShot(true);
-        connect(resizeTimer, &QTimer::timeout, this, &CollageApp::handleResize);
-
         updateLayout();
     }
 
@@ -368,7 +368,25 @@ private:
     }
 
     void initializeGrid() {
+        lastWidth = width();
+        lastHeight = height();
+        updateLayout();
         recreateGrid();
+    }
+    
+    void checkWindowSize() {
+        int currentWidth = width();
+        int currentHeight = height();
+        
+        // Проверяем изменился ли размер
+        if (lastWidth != currentWidth || lastHeight != currentHeight) {
+            lastWidth = currentWidth;
+            lastHeight = currentHeight;
+            
+            // Обновляем layout и сетку
+            updateLayout();
+            recreateGrid();
+        }
     }
 
     void recreateGrid() {
