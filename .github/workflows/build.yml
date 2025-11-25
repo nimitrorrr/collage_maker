@@ -23,7 +23,6 @@ jobs:
         host: 'windows'
         target: 'desktop'
         arch: 'win64_mingw81'
-        modules: 'qtimageformats'
         cache: true
     
     - name: Setup MinGW
@@ -66,6 +65,7 @@ jobs:
         name: CollageApp-Windows-x64
         path: CollageApp-Windows-x64.zip
         retention-days: 30
+        compression-level: 0
     
     - name: Upload release asset
       if: github.event_name == 'release'
@@ -114,6 +114,7 @@ jobs:
         name: CollageApp-Linux-x64
         path: CollageApp-Linux-x64.tar.gz
         retention-days: 30
+        compression-level: 0
     
     - name: Upload release asset
       if: github.event_name == 'release'
