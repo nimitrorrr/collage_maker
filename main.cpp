@@ -349,15 +349,45 @@ private:
         int currentWidth = width();
         int currentHeight = height();
         
-        // Проверяем изменился ли размер
-        if (lastWidth != currentWidth || lastHeight != currentHeight) {
+        // Проверяем изменился ли размер ЗНАЧИТЕЛЬНО (минимум 50 пикселей)
+        int widthDiff = std::abs(lastWidth - currentWidth);
+        int heightDiff = std::abs(lastHeight - currentHeight);
+        
+        if (widthDiff > 50 || heightDiff > 50) {
             lastWidth = currentWidth;
             lastHeight = currentHeight;
             
-            // Обновляем layout и сетку
+            // Обновляем только layout (без пересоздания сетки)
             updateLayout();
-            recreateGrid();
+            
+            // Пересчитываем размер ячеек и меняем их размер (без пересоздания)
+            resizeCells();
         }
+    }
+    
+    void resizeCells() {
+        if (cells.empty()) return;
+        
+        // Calculate new cell size
+        int availableWidth = dropContainer->width() - 20;
+        int availableHeight = dropContainer->height() - 20;
+        
+        if (availableWidth <= 1 || availableHeight <= 1) {
+            return;
+        }
+
+        int cellSize = std::min(availableWidth / gridSize, availableHeight / gridSize);
+        cellSize = std::max(cellSize, 50);
+
+        // Просто меняем размер существующих ячеек
+        for (int i = 0; i < gridSize; i++) {
+            for (int j = 0; j < gridSize; j++) {
+                cells[static_cast<size_t>(i)][static_cast<size_t>(j)]->setFixedSize(cellSize, cellSize);
+            }
+        }
+        
+        // Обновляем превью
+        updateAllThumbnails(cellSize);
     }
 
     void recreateGrid() {
