@@ -19,7 +19,6 @@
 #include <QProgressDialog>
 #include <QThread>
 #include <QGroupBox>
-#include <QResizeEvent>
 #include <QPainter>
 #include <map>
 #include <memory>
@@ -44,7 +43,6 @@ signals:
 public slots:
     void process() {
         try {
-            // Collect images in order
             std::vector<QImage> images;
             for (int i = 0; i < gridSize; i++) {
                 for (int j = 0; j < gridSize; j++) {
@@ -59,7 +57,6 @@ public slots:
 
             emit progress(20);
 
-            // Crop to square and find min size
             std::vector<QImage> processedImages;
             int minSize = INT_MAX;
             
@@ -80,7 +77,6 @@ public slots:
 
             emit progress(40);
 
-            // Check max collage size limit
             int collageSize = gridSize * minSize;
             if (collageSize > maxCollageSize) {
                 minSize = maxCollageSize / gridSize;
@@ -89,17 +85,15 @@ public slots:
 
             emit progress(60);
 
-            // Create collage canvas
             QImage collage(collageSize, collageSize, QImage::Format_RGB32);
             collage.fill(Qt::white);
 
             QPainter painter(&collage);
             
-            // Paste images into collage
             for (size_t i = 0; i < processedImages.size(); i++) {
                 if (!processedImages[i].isNull()) {
-                    int row = i / gridSize;
-                    int col = i % gridSize;
+                    int row = static_cast<int>(i) / gridSize;
+                    int col = static_cast<int>(i) % gridSize;
                     
                     QImage resized = processedImages[i].scaled(minSize, minSize, 
                                                                Qt::IgnoreAspectRatio, 
@@ -107,12 +101,11 @@ public slots:
                     painter.drawImage(col * minSize, row * minSize, resized);
                 }
                 
-                emit progress(60 + (i * 35) / processedImages.size());
+                emit progress(60 + (static_cast<int>(i) * 35) / static_cast<int>(processedImages.size()));
             }
 
             emit progress(95);
 
-            // Save collage
             bool saved = collage.save(outputPath, "PNG", 100);
             
             emit progress(100);
@@ -251,8 +244,8 @@ private:
     std::vector<std::vector<ImageCell*>> cells;
     
     QTimer* checkSizeTimer;
-    int lastWidth = -1;
-    int lastHeight = -1;
+    int lastWidth;
+    int lastHeight;
 
     void setupUI() {
         setWindowTitle("Продвинутый Коллаж - C++ Qt5");
@@ -313,36 +306,14 @@ private:
         gridLayout->setSpacing(2);
         gridLayout->setContentsMargins(10, 10, 10, 10);
 
-        updateLayout();
-    }
+        lastWidth = -1;
+        lastHeight = -1;
 
-    void resizeEvent(QResizeEvent* event) override {
-        QMainWindow::resizeEvent(event);
-        
-        // Игнорируем события во время обновления layout
-        if (isUpdatingLayout) {
-            return;
-        }
-        
-        int currentWidth = width();
-        int currentHeight = height();
-        
-        if (lastWidth != currentWidth || lastHeight != currentHeight) {
-            lastWidth = currentWidth;
-            lastHeight = currentHeight;
-            resizeTimer->start(500); // 500ms debounce
-        }
-    }
-
-    void handleResize() {
-        isUpdatingLayout = true;
         updateLayout();
-        recreateGrid();
-        isUpdatingLayout = false;
     }
 
     void updateLayout() {
-        // Clear existing layout
+        // Очищаем текущее расположение
         if (centralWidget->layout()) {
             delete centralWidget->layout();
         }
@@ -390,9 +361,6 @@ private:
     }
 
     void recreateGrid() {
-        // Блокируем обработку событий во время пересоздания
-        dropContainer->setUpdatesEnabled(false);
-        
         // Clear existing grid
         while (gridLayout->count() > 0) {
             QLayoutItem* item = gridLayout->takeAt(0);
@@ -403,7 +371,7 @@ private:
         }
         cells.clear();
 
-        // Calculate cell size
+        // Calculate cell size - адаптивный по размеру окна
         int availableWidth = dropContainer->width() - 20;
         int availableHeight = dropContainer->height() - 20;
         
@@ -416,9 +384,9 @@ private:
         cellSize = std::max(cellSize, 50); // Minimum cell size
 
         // Create grid cells
-        cells.resize(gridSize);
+        cells.resize(static_cast<size_t>(gridSize));
         for (int i = 0; i < gridSize; i++) {
-            cells[i].resize(gridSize);
+            cells[static_cast<size_t>(i)].resize(static_cast<size_t>(gridSize));
             for (int j = 0; j < gridSize; j++) {
                 ImageCell* cell = new ImageCell(i, j, dropContainer);
                 cell->setFixedSize(cellSize, cellSize);
@@ -427,22 +395,13 @@ private:
                 connect(cell, &ImageCell::imageDropped, this, &CollageApp::onImageDropped);
                 
                 gridLayout->addWidget(cell, i, j);
-                cells[i][j] = cell;
+                cells[static_cast<size_t>(i)][static_cast<size_t>(j)] = cell;
             }
-        }
-
-        // Center the grid
-        for (int i = 0; i < gridSize; i++) {
-            gridLayout->setRowStretch(i, 0);
-            gridLayout->setColumnStretch(i, 0);
         }
 
         // Restore images
         updateAllThumbnails(cellSize);
         updateInfoLabel();
-        
-        // Разблокируем обработку событий
-        dropContainer->setUpdatesEnabled(true);
     }
 
     void onImageDropped(int row, int col, QString filePath) {
@@ -464,13 +423,13 @@ private:
         imageData[{row, col}] = {filePath, image};
 
         // Create and display thumbnail
-        int cellSize = cells[row][col]->width();
+        int cellSize = cells[static_cast<size_t>(row)][static_cast<size_t>(col)]->width();
         QImage squared = cropCenterToSquare(image);
         QPixmap thumbnail = QPixmap::fromImage(squared.scaled(cellSize, cellSize, 
                                                               Qt::IgnoreAspectRatio, 
                                                               Qt::SmoothTransformation));
         
-        cells[row][col]->setImageData(thumbnail, fileInfo.fileName());
+        cells[static_cast<size_t>(row)][static_cast<size_t>(col)]->setImageData(thumbnail, fileInfo.fileName());
         updateInfoLabel();
     }
 
@@ -485,7 +444,7 @@ private:
                                                                       Qt::IgnoreAspectRatio,
                                                                       Qt::SmoothTransformation));
                 QFileInfo fileInfo(pair.second.path);
-                cells[row][col]->setImageData(thumbnail, fileInfo.fileName());
+                cells[static_cast<size_t>(row)][static_cast<size_t>(col)]->setImageData(thumbnail, fileInfo.fileName());
             }
         }
     }
@@ -501,7 +460,7 @@ private:
 
     void updateInfoLabel() {
         int totalCells = gridSize * gridSize;
-        int filledCells = imageData.size();
+        int filledCells = static_cast<int>(imageData.size());
         infoLabel->setText(QString("Заполнено %1 из %2 ячеек").arg(filledCells).arg(totalCells));
         
         if (filledCells == totalCells) {
@@ -521,6 +480,7 @@ private:
             imageData.clear();
             
             // Recreate grid
+            updateLayout();
             recreateGrid();
             
             // Restore images that fit in new grid
@@ -536,6 +496,7 @@ private:
 
     void clearAll() {
         imageData.clear();
+        updateLayout();
         recreateGrid();
     }
 
